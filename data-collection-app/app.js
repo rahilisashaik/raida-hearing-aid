@@ -34,6 +34,7 @@ class AudioGenerator {
             1000,
             (value) => {
                 this.frequency = value;
+                this.updateFrequency(value);
                 this.updateStatus(`Frequency: ${value} Hz, Volume: ${this.volume.toFixed(1)} dB`);
             }
         );
@@ -43,6 +44,7 @@ class AudioGenerator {
             -10, // Start at minimum (silent)
             (value) => {
                 this.volume = value;
+                this.updateVolume(value);
                 this.updateStatus(`Frequency: ${this.frequency} Hz, Volume: ${value.toFixed(1)} dB`);
             }
         );
@@ -144,6 +146,37 @@ class AudioGenerator {
             this.updateStatus('Playback stopped.');
         } catch (error) {
             console.error('Error stopping playback:', error);
+        }
+    }
+
+    // Update frequency in real-time (while playing)
+    updateFrequency(frequency) {
+        if (this.isPlaying && this.oscillator) {
+            try {
+                // Update oscillator frequency in real-time
+                this.oscillator.frequency.setValueAtTime(
+                    frequency,
+                    this.audioContext.currentTime
+                );
+            } catch (error) {
+                console.error('Error updating frequency:', error);
+            }
+        }
+    }
+
+    // Update volume in real-time (while playing)
+    updateVolume(volumeDb) {
+        if (this.isPlaying && this.gainNode) {
+            try {
+                // Convert dB to gain and update gain node in real-time
+                const gainValue = this.dbToGain(volumeDb);
+                this.gainNode.gain.setValueAtTime(
+                    gainValue,
+                    this.audioContext.currentTime
+                );
+            } catch (error) {
+                console.error('Error updating volume:', error);
+            }
         }
     }
 
