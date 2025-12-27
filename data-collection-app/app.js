@@ -8,7 +8,7 @@ class AudioGenerator {
         this.oscillator = null;
         this.gainNode = null;
         this.frequency = 1000; // Hz
-        this.volume = 0; // dB
+        this.volume = -10; // dB (starts at minimum = silent)
         this.isPlaying = false;
         
         this.init();
@@ -40,7 +40,7 @@ class AudioGenerator {
 
         this.volumeSlider = new VolumeSlider(
             volumeContainer,
-            0,
+            -10, // Start at minimum (silent)
             (value) => {
                 this.volume = value;
                 this.updateStatus(`Frequency: ${this.frequency} Hz, Volume: ${value.toFixed(1)} dB`);
@@ -55,9 +55,32 @@ class AudioGenerator {
         this.updateStatus('Ready. Adjust frequency and volume, then click Play Audio.');
     }
 
-    // Convert dB to linear gain (amplitude)
+    // Convert dB slider value to linear gain (amplitude)
+    // Maps dB range to gain range where minimum dB = silence (gain = 0)
+    // Uses logarithmic scaling for natural volume perception
     dbToGain(db) {
-        return Math.pow(10, db / 20);
+        const minDb = -10;
+        const maxDb = 120;
+        
+        // Clamp dB value to range
+        const clampedDb = Math.max(minDb, Math.min(maxDb, db));
+        
+        // If at minimum, return silence
+        if (clampedDb <= minDb) {
+            return 0;
+        }
+        
+        // Map dB range to gain range (0 to 1.0)
+        // Use logarithmic scaling: normalize dB, then convert to gain
+        const dbRange = maxDb - minDb;
+        const normalizedDb = (clampedDb - minDb) / dbRange; // 0 to 1
+        
+        // Convert to gain using logarithmic curve
+        // This gives natural volume perception (logarithmic hearing response)
+        // Power of 3 provides good curve for volume control
+        const gain = Math.pow(normalizedDb, 3);
+        
+        return gain;
     }
 
     // Start audio playback

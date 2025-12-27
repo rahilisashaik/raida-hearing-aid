@@ -1,14 +1,16 @@
 /**
  * Volume Slider Component
- * Allows user to configure audio volume in dB (-10 to 100 dB)
+ * Allows user to configure audio volume with dB as quantitative metric
+ * Range: -10 to 120 dB
+ * Minimum (-10 dB) = silent, higher values = louder
  */
 export class VolumeSlider {
-    constructor(container, initialValue = 0, onChange = null) {
+    constructor(container, initialValue = -10, onChange = null) {
         this.container = container;
         this.value = initialValue;
         this.onChange = onChange;
-        this.min = -10;
-        this.max = 100;
+        this.min = -10; // Silent
+        this.max = 120; // Maximum volume
         this.render();
     }
 
