@@ -15,15 +15,28 @@ export class FrequencySlider {
     render() {
         this.container.innerHTML = `
             <div class="slider-group">
-                <label for="frequency-slider">Frequency: <span id="frequency-value">${this.value}</span> Hz</label>
-                <input 
-                    type="range" 
-                    id="frequency-slider" 
-                    min="${this.min}" 
-                    max="${this.max}" 
-                    value="${this.value}"
-                    step="1"
-                >
+                <label for="frequency-slider">Frequency:</label>
+                <div class="slider-with-input">
+                    <input 
+                        type="number" 
+                        id="frequency-input" 
+                        min="${this.min}" 
+                        max="${this.max}" 
+                        value="${this.value}"
+                        step="1"
+                        aria-label="Frequency in Hz"
+                    >
+                    <span class="input-suffix">Hz</span>
+                    <button type="button" id="frequency-set-btn" class="frequency-set-btn">Set</button>
+                    <input 
+                        type="range" 
+                        id="frequency-slider" 
+                        min="${this.min}" 
+                        max="${this.max}" 
+                        value="${this.value}"
+                        step="1"
+                    >
+                </div>
                 <div class="slider-labels">
                     <span>${this.min} Hz</span>
                     <span>${this.max} Hz</span>
@@ -32,14 +45,43 @@ export class FrequencySlider {
         `;
 
         const slider = this.container.querySelector('#frequency-slider');
-        const valueDisplay = this.container.querySelector('#frequency-value');
+        const input = this.container.querySelector('#frequency-input');
 
-        slider.addEventListener('input', (e) => {
-            this.value = parseInt(e.target.value);
-            valueDisplay.textContent = this.value;
+        const updateFromValue = (val) => {
+            this.value = Math.max(this.min, Math.min(this.max, Math.round(val)));
+            slider.value = this.value;
+            input.value = this.value;
             if (this.onChange) {
                 this.onChange(this.value);
             }
+        };
+
+        const commitInputValue = () => {
+            const parsed = parseInt(input.value, 10);
+            if (Number.isNaN(parsed) || parsed < this.min || parsed > this.max) {
+                input.value = this.value;
+            } else {
+                updateFromValue(parsed);
+            }
+        };
+
+        slider.addEventListener('input', (e) => {
+            updateFromValue(parseInt(e.target.value, 10));
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitInputValue();
+            }
+        });
+
+        input.addEventListener('change', () => {
+            commitInputValue();
+        });
+
+        this.container.querySelector('#frequency-set-btn').addEventListener('click', () => {
+            commitInputValue();
         });
     }
 
@@ -48,13 +90,11 @@ export class FrequencySlider {
     }
 
     setValue(value) {
-        this.value = Math.max(this.min, Math.min(this.max, value));
+        this.value = Math.max(this.min, Math.min(this.max, Math.round(value)));
         const slider = this.container.querySelector('#frequency-slider');
-        const valueDisplay = this.container.querySelector('#frequency-value');
-        if (slider) {
-            slider.value = this.value;
-            valueDisplay.textContent = this.value;
-        }
+        const input = this.container.querySelector('#frequency-input');
+        if (slider) slider.value = this.value;
+        if (input) input.value = this.value;
     }
 }
 
