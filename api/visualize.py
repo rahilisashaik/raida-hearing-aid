@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from typing import Optional
 from .constants import _FREQS
 
 def plot_audiogram_template_style(
@@ -9,7 +10,7 @@ def plot_audiogram_template_style(
     *,
     title: str = "Pure Tone Audiogram",
     y_label: str = "Volume (dB)",
-    figsize=(10, 6),
+    figsize=(8, 4),
     connect_lines: bool = True,
 ):
     """
@@ -108,3 +109,70 @@ def construct_audiogram_from_row(row: pd.Series, invert_y: bool = True):
     plt.ylabel("Threshold (app-reported)")
     plt.title(f"Audiogram: {row['participant_id']} {row['ear']} {row['date_tested']}")
     return audiogram_df, fig
+
+
+def plot_gain_profile(
+    gain_left_df: pd.DataFrame,
+    gain_right_df: Optional[pd.DataFrame] = None,
+    *,
+    title: str = "Prescribed Gain Profile",
+    figsize=(8, 4),
+):
+    """
+    Plot prescribed gain vs frequency, similar to a hearing-aid fitting target curve.
+
+    Inputs:
+      - gain_left_df:  DataFrame from derive_gain_profile_from_row for LEFT ear
+      - gain_right_df: Optional DataFrame for RIGHT ear (same schema as gain_left_df)
+
+    Output:
+      - (fig, ax)
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Left ear curve
+    ax.plot(
+        gain_left_df["freq_hz"],
+        gain_left_df["gain"],
+        marker="x",
+        linestyle="-",
+        linewidth=2,
+        markersize=8,
+        label="Left Ear",
+    )
+
+    # Optional right ear curve
+    if gain_right_df is not None:
+        ax.plot(
+            gain_right_df["freq_hz"],
+            gain_right_df["gain"],
+            marker="o",
+            linestyle="-",
+            linewidth=2,
+            markersize=8,
+            markerfacecolor="none",
+            label="Right Ear",
+        )
+
+    ax.set_xscale("log")
+    ax.set_xticks(list(_FREQS))
+    ax.set_xticklabels([str(f) for f in _FREQS])
+    ax.set_xlabel("Frequency (Hz)")
+
+    # Gain is in dB, usually a modest positive range
+    all_gains = list(gain_left_df["gain"])
+    if gain_right_df is not None:
+        all_gains.extend(list(gain_right_df["gain"]))
+    ymax = max(all_gains + [0])
+    ax.set_ylim(0, ymax + 5)
+    ax.set_ylabel("Prescribed gain (dB)")
+
+    ax.grid(which="major", axis="both", linewidth=1, alpha=0.5)
+    ax.minorticks_on()
+    ax.grid(which="minor", axis="both", linewidth=0.5, alpha=0.25)
+
+    ax.set_title(title, loc="left", fontsize=14, fontweight="bold")
+    ax.legend(loc="upper right", frameon=False)
+
+    return fig, ax
+
