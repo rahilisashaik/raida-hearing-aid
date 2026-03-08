@@ -68,7 +68,8 @@ def plot_audiogram_template_style(
     ax.grid(which="minor", axis="both", linewidth=0.5, alpha=0.25)
 
     # Title + legend
-    ax.set_title(title, loc="left", fontsize=16, fontweight="bold")
+    modified_title = f"{title} for {row_left.get('participant_id', '')} on {row_left.get('date_tested', '')}"
+    ax.set_title(modified_title, loc="left", fontsize=16, fontweight="bold")
     ax.legend(loc="upper right", frameon=False)
 
     # Optional small identifier line
