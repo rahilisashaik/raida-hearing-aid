@@ -12,6 +12,7 @@ body {
     justify-content: center;
     align-items: center;
     padding: 20px;
+    padding-top: 72px;
 }
 
 .container {
@@ -19,8 +20,335 @@ body {
     border-radius: 16px;
     padding: 40px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-width: 600px;
+    max-width: 640px;
     width: 100%;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Raida's Experiment — top-right switch bar */
+.experiment-switch-bar {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px 10px 14px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 999px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(102, 126, 234, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.experiment-switch-bar__flask {
+    flex-shrink: 0;
+    color: #5a67d8;
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+}
+
+.experiment-switch-bar__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3d3d4d;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .experiment-switch-bar__label {
+        display: none;
+    }
+    .experiment-switch-bar {
+        padding: 10px 12px;
+    }
+}
+
+/* iOS-style toggle switch */
+.switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch__track {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    background: #d1d5db;
+    transition: background 0.22s ease;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.switch__thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    transition: transform 0.22s ease;
+}
+
+.switch input:focus-visible + .switch__track {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+.switch input:checked + .switch__track {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.switch input:checked + .switch__track .switch__thumb {
+    transform: translateX(20px);
+}
+
+.switch.switch--raidas:hover .switch__track {
+    filter: brightness(0.98);
+}
+
+.experiment-wizard {
+    margin-bottom: 24px;
+    padding: 18px;
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 12px;
+    border: 1px solid #e8e8f0;
+}
+
+.experiment-wizard h2 {
+    font-size: 17px;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.experiment-wizard .experiment-help {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.experiment-input-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.experiment-input-row label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #444;
+}
+
+.experiment-input-row input[type="number"] {
+    width: 100%;
+    max-width: 200px;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.experiment-submit-btn {
+    align-self: flex-start;
+    padding: 10px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.experiment-submit-btn:hover {
+    opacity: 0.95;
+}
+
+.experiment-progress {
+    margin-top: 14px;
+    font-size: 13px;
+    color: #888;
+}
+
+.slider-group--disabled {
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+/* Results slides — large modal (~95% viewport) with sliver of main UI visible */
+.results-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.results-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(30, 30, 45, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.results-modal__card {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    /* ~95% of viewport — sliver of main UI visible around the modal */
+    width: 95vw;
+    height: 95vh;
+    height: 95dvh;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.results-modal__card #slides-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 20px 16px;
+}
+
+@media (min-width: 640px) {
+    .results-modal__card #slides-container {
+        padding: 28px 40px 20px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .results-modal__card #slides-container {
+        padding: 36px 56px 24px;
+    }
+}
+
+.results-modal__close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 10;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: rgba(240, 240, 240, 0.95);
+    border-radius: 10px;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.results-modal__close:hover {
+    background: #e8e8e8;
+}
+
+.slide {
+    display: none;
+}
+
+.slide.slide--active {
+    display: block;
+}
+
+.slide h2 {
+    font-size: 18px;
+    color: #222;
+    margin-bottom: 8px;
+}
+
+.slide p {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.slide canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.slide-nav {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 0;
+    padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid #eee;
+    background: #fafafa;
+}
+
+@media (min-width: 640px) {
+    .slide-nav {
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .slide-nav {
+        padding-left: 56px;
+        padding-right: 56px;
+    }
+}
+
+.slide-nav button {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #667eea;
+    background: #f0f0ff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.slide-nav button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+#slide-indicator {
+    font-size: 13px;
+    color: #888;
 }
 
 h1 {

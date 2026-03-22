@@ -89,12 +89,30 @@ export class FrequencySlider {
         return this.value;
     }
 
-    setValue(value) {
+    /**
+     * @param {number} value
+     * @param {boolean} [notify=false] - if true, call onChange (updates audio)
+     */
+    setValue(value, notify = false) {
         this.value = Math.max(this.min, Math.min(this.max, Math.round(value)));
         const slider = this.container.querySelector('#frequency-slider');
         const input = this.container.querySelector('#frequency-input');
         if (slider) slider.value = this.value;
         if (input) input.value = this.value;
+        if (notify && this.onChange) {
+            this.onChange(this.value);
+        }
+    }
+
+    /** Disable slider/inputs during guided experiment */
+    setDisabled(disabled) {
+        const slider = this.container.querySelector('#frequency-slider');
+        const input = this.container.querySelector('#frequency-input');
+        const btn = this.container.querySelector('#frequency-set-btn');
+        [slider, input, btn].forEach((el) => {
+            if (el) el.disabled = disabled;
+        });
+        this.container.classList.toggle('slider-group--disabled', disabled);
     }
 }
 

@@ -1,21 +1,32 @@
 import { FrequencySlider } from './components/frequency-slider.js';
 import { VolumeSlider } from './components/volume-slider.js';
 import { PlayButton } from './components/play-button.js';
+import { FREQS } from './js/constants.js';
+import { deriveGainProfile } from './js/derive.js';
+import { drawAudiogramCanvas, drawGainProfileCanvas } from './js/charts.js';
+
+const COMPRESSION = 0.5;
+const MAX_GAIN = 25;
 
 class AudioGenerator {
     constructor() {
         this.audioContext = null;
         this.oscillator = null;
         this.gainNode = null;
-        this.frequency = 1000; // Hz
-        this.volume = -10; // dB (starts at minimum = silent)
+        this.frequency = 1000;
+        this.volume = -10;
         this.isPlaying = false;
-        
+
+        /** @type {number[]} */
+        this.experimentThresholds = [];
+        this.experimentStep = 0;
+        this.experimentActive = false;
+        this.currentSlide = 0;
+
         this.init();
     }
 
     init() {
-        // Initialize Web Audio API
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         } catch (error) {
@@ -24,114 +35,248 @@ class AudioGenerator {
             return;
         }
 
-        // Initialize components
         const frequencyContainer = document.getElementById('frequency-slider-container');
         const volumeContainer = document.getElementById('volume-slider-container');
         const playButtonContainer = document.getElementById('play-button-container');
 
-        this.frequencySlider = new FrequencySlider(
-            frequencyContainer,
-            1000,
-            (value) => {
-                this.frequency = value;
-                this.updateFrequency(value);
-                this.updateStatus(`Frequency: ${value} Hz, Volume: ${this.volume.toFixed(1)} dB`);
-            }
-        );
+        this.frequencySlider = new FrequencySlider(frequencyContainer, 1000, (value) => {
+            if (this.experimentActive) return;
+            this.frequency = value;
+            this.updateFrequency(value);
+            this.updateStatus(`Frequency: ${value} Hz, Volume: ${this.volume.toFixed(1)} dB`);
+        });
 
-        this.volumeSlider = new VolumeSlider(
-            volumeContainer,
-            -10, // Start at minimum (silent)
-            (value) => {
-                this.volume = value;
-                this.updateVolume(value);
-                this.updateStatus(`Frequency: ${this.frequency} Hz, Volume: ${value.toFixed(1)} dB`);
-            }
-        );
+        this.volumeSlider = new VolumeSlider(volumeContainer, -10, (value) => {
+            this.volume = value;
+            this.updateVolume(value);
+            this.updateStatus(`Frequency: ${this.frequency} Hz, Volume: ${value.toFixed(1)} dB`);
+        });
 
-        this.playButton = new PlayButton(
-            playButtonContainer,
-            () => this.togglePlayback()
-        );
+        this.playButton = new PlayButton(playButtonContainer, () => this.togglePlayback());
 
-        this.updateStatus('Ready. Adjust frequency and volume, then click Play Audio.');
+        this.bindExperimentUI();
+        this.bindResultsSlides();
+
+        this.updateStatus('Ready. Adjust frequency and volume, or enable Raida\'s Experiment.');
     }
 
-    // Convert dB slider value to linear gain (amplitude)
-    // Maps dB range to gain range where minimum dB = silence (gain = 0)
-    // Uses logarithmic scaling for natural volume perception
+    bindExperimentUI() {
+        const toggle = document.getElementById('raidas-experiment-toggle');
+        const submit = document.getElementById('threshold-submit');
+        const input = document.getElementById('threshold-input');
+
+        toggle.addEventListener('change', () => {
+            if (toggle.checked) {
+                this.startExperiment();
+            } else {
+                this.cancelExperiment();
+            }
+        });
+
+        submit.addEventListener('click', () => this.submitExperimentThreshold());
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.submitExperimentThreshold();
+            }
+        });
+    }
+
+    bindResultsSlides() {
+        const modal = document.getElementById('results-modal');
+        const closeBtn = document.getElementById('results-close');
+        const backdrop = document.getElementById('results-backdrop');
+        const prev = document.getElementById('slide-prev');
+        const next = document.getElementById('slide-next');
+
+        const close = () => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        };
+
+        closeBtn.addEventListener('click', close);
+        backdrop.addEventListener('click', close);
+
+        prev.addEventListener('click', () => this.goToSlide(this.currentSlide - 1));
+        next.addEventListener('click', () => this.goToSlide(this.currentSlide + 1));
+    }
+
+    startExperiment() {
+        this.experimentActive = true;
+        this.experimentStep = 0;
+        this.experimentThresholds = [];
+
+        document.getElementById('experiment-wizard').classList.remove('hidden');
+        this.frequencySlider.setDisabled(true);
+
+        const input = document.getElementById('threshold-input');
+        input.value = '';
+        input.focus();
+
+        this.renderExperimentStep();
+    }
+
+    cancelExperiment() {
+        this.experimentActive = false;
+        this.experimentStep = 0;
+        this.experimentThresholds = [];
+        document.getElementById('experiment-wizard').classList.add('hidden');
+        this.frequencySlider.setDisabled(false);
+    }
+
+    renderExperimentStep() {
+        const hz = FREQS[this.experimentStep];
+        document.getElementById('experiment-step-title').textContent =
+            `Step ${this.experimentStep + 1} of ${FREQS.length}`;
+        document.getElementById('current-freq-label').textContent = String(hz);
+        document.getElementById('experiment-help').textContent =
+            `The tone is set to ${hz} Hz. Use Play and the volume slider to find the quietest level (dB) at which you can just hear the tone for ONE ear. Enter that number and click Submit.`;
+        document.getElementById('experiment-progress').textContent =
+            `Current test: ${hz} Hz (${this.experimentStep + 1} / ${FREQS.length})`;
+
+        this.frequency = hz;
+        this.frequencySlider.setValue(hz, true);
+        this.updateFrequency(hz);
+        this.updateStatus(`Experiment: ${hz} Hz — set volume, play, then enter threshold (dB).`);
+    }
+
+    submitExperimentThreshold() {
+        if (!this.experimentActive) return;
+
+        const input = document.getElementById('threshold-input');
+        const raw = parseFloat(input.value);
+        if (Number.isNaN(raw)) {
+            this.showStatus('Enter a valid number for threshold (dB).', 'error');
+            return;
+        }
+        if (raw < -20 || raw > 130) {
+            this.showStatus('Threshold should be roughly between -20 and 130 dB.', 'error');
+            return;
+        }
+
+        this.experimentThresholds[this.experimentStep] = raw;
+        this.experimentStep += 1;
+        input.value = '';
+
+        if (this.experimentStep < FREQS.length) {
+            this.renderExperimentStep();
+            input.focus();
+        } else {
+            this.completeExperiment();
+        }
+    }
+
+    completeExperiment() {
+        this.experimentActive = false;
+        document.getElementById('experiment-wizard').classList.add('hidden');
+        this.frequencySlider.setDisabled(false);
+
+        const thresholds = this.experimentThresholds;
+        const gainMin = deriveGainProfile(thresholds, 'min', COMPRESSION, MAX_GAIN, 'none');
+        const gainMedian = deriveGainProfile(thresholds, 'median_mid', COMPRESSION, MAX_GAIN, 'none');
+        const gainPta4 = deriveGainProfile(thresholds, 'pta4', COMPRESSION, MAX_GAIN, 'none');
+        const gainSmoothed = deriveGainProfile(thresholds, 'pta4', COMPRESSION, MAX_GAIN, 'ma3');
+
+        const ca = document.getElementById('chart-audiogram');
+        drawAudiogramCanvas(ca, thresholds, 'Your threshold audiogram');
+
+        drawGainProfileCanvas(
+            document.getElementById('chart-gain-min'),
+            gainMin,
+            `Gain (reference = min, t_ref ≈ ${gainMin.reference_threshold} dB)`
+        );
+        drawGainProfileCanvas(
+            document.getElementById('chart-gain-median'),
+            gainMedian,
+            `Gain (reference = median_mid, t_ref ≈ ${gainMedian.reference_threshold} dB)`
+        );
+        drawGainProfileCanvas(
+            document.getElementById('chart-gain-pta4'),
+            gainPta4,
+            `Gain (reference = PTA4, t_ref ≈ ${gainPta4.reference_threshold} dB)`
+        );
+        drawGainProfileCanvas(
+            document.getElementById('chart-gain-smoothed'),
+            gainSmoothed,
+            `Smoothed gain (PTA4 + 3-point average)`
+        );
+
+        this.currentSlide = 0;
+        this.goToSlide(0);
+
+        const modal = document.getElementById('results-modal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        this.updateStatus('Experiment complete. Review your audiogram and gain profiles in the viewer.');
+    }
+
+    goToSlide(index) {
+        const slides = document.querySelectorAll('#slides-container .slide');
+        const n = slides.length;
+        if (index < 0 || index >= n) return;
+
+        this.currentSlide = index;
+        slides.forEach((el, i) => {
+            el.classList.toggle('slide--active', i === index);
+        });
+
+        document.getElementById('slide-indicator').textContent = `${index + 1} / ${n}`;
+        document.getElementById('slide-prev').disabled = index === 0;
+        document.getElementById('slide-next').disabled = index === n - 1;
+    }
+
     dbToGain(db) {
         const minDb = -10;
         const maxDb = 120;
-        
-        // Clamp dB value to range
         const clampedDb = Math.max(minDb, Math.min(maxDb, db));
-        
-        // If at minimum, return silence
         if (clampedDb <= minDb) {
             return 0;
         }
-        
-        // Map dB range to gain range (0 to 1.0)
-        // Use logarithmic scaling: normalize dB, then convert to gain
         const dbRange = maxDb - minDb;
-        const normalizedDb = (clampedDb - minDb) / dbRange; // 0 to 1
-        
-        // Convert to gain using logarithmic curve
-        // This gives natural volume perception (logarithmic hearing response)
-        // Power of 3 provides good curve for volume control
-        const gain = Math.pow(normalizedDb, 3);
-        
-        return gain;
+        const normalizedDb = (clampedDb - minDb) / dbRange;
+        return Math.pow(normalizedDb, 3);
     }
 
-    // Start audio playback
     startPlayback() {
         if (this.isPlaying) {
             return;
         }
-        
+
         try {
-            // Resume audio context if suspended (required by some browsers)
             if (this.audioContext.state === 'suspended') {
                 this.audioContext.resume();
             }
 
-            // Create oscillator
             this.oscillator = this.audioContext.createOscillator();
-            this.oscillator.type = 'sine'; // Pure tone
+            this.oscillator.type = 'sine';
             this.oscillator.frequency.setValueAtTime(this.frequency, this.audioContext.currentTime);
 
-            // Create gain node for volume control
             this.gainNode = this.audioContext.createGain();
             const gainValue = this.dbToGain(this.volume);
             this.gainNode.gain.setValueAtTime(gainValue, this.audioContext.currentTime);
 
-            // Connect nodes
             this.oscillator.connect(this.gainNode);
             this.gainNode.connect(this.audioContext.destination);
 
-            // Start playback
             this.oscillator.start();
             this.isPlaying = true;
             this.playButton.setPlaying(true);
 
             this.updateStatus(`Playing: ${this.frequency} Hz at ${this.volume.toFixed(1)} dB`);
 
-            // Handle when oscillator stops (after duration or manual stop)
             this.oscillator.onended = () => {
                 this.isPlaying = false;
                 this.playButton.setPlaying(false);
                 this.updateStatus('Playback stopped.');
             };
-
         } catch (error) {
             console.error('Error starting playback:', error);
             this.showStatus('Error starting playback: ' + error.message, 'error');
         }
     }
 
-    // Stop audio playback
     stopPlayback() {
         if (!this.isPlaying || !this.oscillator) {
             return;
@@ -149,38 +294,27 @@ class AudioGenerator {
         }
     }
 
-    // Update frequency in real-time (while playing)
     updateFrequency(frequency) {
         if (this.isPlaying && this.oscillator) {
             try {
-                // Update oscillator frequency in real-time
-                this.oscillator.frequency.setValueAtTime(
-                    frequency,
-                    this.audioContext.currentTime
-                );
+                this.oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
             } catch (error) {
                 console.error('Error updating frequency:', error);
             }
         }
     }
 
-    // Update volume in real-time (while playing)
     updateVolume(volumeDb) {
         if (this.isPlaying && this.gainNode) {
             try {
-                // Convert dB to gain and update gain node in real-time
                 const gainValue = this.dbToGain(volumeDb);
-                this.gainNode.gain.setValueAtTime(
-                    gainValue,
-                    this.audioContext.currentTime
-                );
+                this.gainNode.gain.setValueAtTime(gainValue, this.audioContext.currentTime);
             } catch (error) {
                 console.error('Error updating volume:', error);
             }
         }
     }
 
-    // Toggle playback
     togglePlayback() {
         if (this.isPlaying) {
             this.stopPlayback();
@@ -189,7 +323,6 @@ class AudioGenerator {
         }
     }
 
-    // Update status message
     updateStatus(message) {
         const statusEl = document.getElementById('status');
         if (statusEl) {
@@ -198,7 +331,6 @@ class AudioGenerator {
         }
     }
 
-    // Show error status
     showStatus(message, type = 'info') {
         const statusEl = document.getElementById('status');
         if (statusEl) {
@@ -208,8 +340,6 @@ class AudioGenerator {
     }
 }
 
-// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     new AudioGenerator();
 });
-

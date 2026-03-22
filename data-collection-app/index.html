@@ -7,19 +7,83 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <div class="experiment-switch-bar" role="region" aria-label="Experiment mode">
+        <svg class="experiment-switch-bar__flask" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <!-- Erlenmeyer flask: narrow neck, conical body -->
+            <path fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" d="M10 2.5h4v3.8l5.8 14.2a1.9 1.9 0 0 1-1.8 2.3H8a1.9 1.9 0 0 1-1.8-2.3L10 6.3V2.5z"/>
+        </svg>
+        <span class="experiment-switch-bar__label" id="experiment-desc">Raida’s Experiment</span>
+        <label class="switch switch--raidas">
+            <input type="checkbox" id="raidas-experiment-toggle" aria-labelledby="experiment-desc">
+            <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+        </label>
+    </div>
+
     <div class="container">
         <h1>Raida's Science Fair Audio Generator</h1>
-        
+
+        <div id="experiment-wizard" class="experiment-wizard hidden">
+            <h2 id="experiment-step-title">Step 1 of 6</h2>
+            <p class="experiment-help" id="experiment-help"></p>
+            <div class="experiment-input-row">
+                <label for="threshold-input">Threshold at <strong id="current-freq-label">250</strong> Hz (dB)</label>
+                <input type="number" id="threshold-input" step="0.1" placeholder="dB when you first hear the tone" autocomplete="off">
+                <button type="button" class="experiment-submit-btn" id="threshold-submit">Submit &amp; continue</button>
+            </div>
+            <div class="experiment-progress" id="experiment-progress"></div>
+        </div>
+
         <div class="controls">
             <div id="frequency-slider-container"></div>
             <div id="volume-slider-container"></div>
             <div id="play-button-container"></div>
         </div>
-        
+
         <div id="status" class="status"></div>
+    </div>
+
+    <!-- Results: slide deck after experiment -->
+    <div id="results-modal" class="results-modal hidden" role="dialog" aria-modal="true" aria-labelledby="results-title">
+        <div class="results-modal__backdrop" id="results-backdrop"></div>
+        <div class="results-modal__card">
+            <button type="button" class="results-modal__close" id="results-close" aria-label="Close">&times;</button>
+
+            <div id="slides-container">
+                <div class="slide slide--active" data-slide="0">
+                    <h2 id="results-title">Your audiogram</h2>
+                    <p>These are the softest levels you heard at each test frequency—plotted like a clinical audiogram (higher = more hearing loss).</p>
+                    <canvas id="chart-audiogram" width="520" height="280"></canvas>
+                </div>
+                <div class="slide" data-slide="1">
+                    <h2>Gain profile — reference: minimum</h2>
+                    <p>Gain is computed from how much worse each frequency is than the <strong>best</strong> threshold across your test (after compression).</p>
+                    <canvas id="chart-gain-min" width="520" height="280"></canvas>
+                </div>
+                <div class="slide" data-slide="2">
+                    <h2>Gain profile — reference: median (500–2000 Hz)</h2>
+                    <p>The baseline uses the median of your 500, 1000, and 2000 Hz thresholds—robust to outliers in the mids.</p>
+                    <canvas id="chart-gain-median" width="520" height="280"></canvas>
+                </div>
+                <div class="slide" data-slide="3">
+                    <h2>Gain profile — reference: PTA4</h2>
+                    <p>PTA4 averages 500–4000 Hz, similar to common speech-weighted summaries.</p>
+                    <canvas id="chart-gain-pta4" width="520" height="280"></canvas>
+                </div>
+                <div class="slide" data-slide="4">
+                    <h2>Smoothed gain profile</h2>
+                    <p>A 3-point moving average across frequency makes the prescription smoother—closer to what a real hearing-aid fitting targets.</p>
+                    <canvas id="chart-gain-smoothed" width="520" height="280"></canvas>
+                </div>
+            </div>
+
+            <div class="slide-nav">
+                <button type="button" id="slide-prev">← Previous</button>
+                <span id="slide-indicator">1 / 5</span>
+                <button type="button" id="slide-next">Next →</button>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="app.js"></script>
 </body>
 </html>
-
